@@ -1,0 +1,63 @@
+﻿# Archivos de Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Archivos de compilación
+bin/
+obj/
+out/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+
+# Archivos de configuración local
+*.dbmdl
+*.dbproj
+*.jfm
+*.vscode/
+*.env
+
+# Archivos de publicación
+publish/
+*.deploy*
+
+# Archivos de sistema
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Archivos de paquetes
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+*.vsidx
+
+# Archivos de dependencias
+node_modules/
+bower_components/
+
+# Archivos de configuración de Git
+*.orig
+
+# Archivos de entorno
+.env
+.env.*
+
+# Archivos de migraciones y EF
+Migrations/
+
+# Archivos de test y cobertura
+TestResults/
+coverage/
+
+# Archivos temporales
+*.tmp
+*.bak
+*.swp
+*.swo
