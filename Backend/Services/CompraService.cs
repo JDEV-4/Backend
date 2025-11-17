@@ -1,21 +1,26 @@
-﻿using Backend.Models;
-using Backend.DataAccess;
+﻿using Backend.DataAccess;
+using Backend.Models;
+using Backend.Models.MetricsModels;
+using Backend.Services.MetricsServices;
 using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Backend.Services
 {
     public class CompraService
     {
         private readonly CompraDAL _compraDAL;
+        private readonly IMetrics _metricsService;
 
-        public CompraService(CompraDAL compraDAL)
+        public CompraService(CompraDAL compraDAL, IMetrics metricsService)
         {
             _compraDAL = compraDAL;
+            _metricsService = metricsService;
         }
 
-        public CompraResponseDTO RegistrarCompra(CompraDTO compra)
+        public async Task<CompraResponseDTO> RegistrarCompraAsync(CompraDTO compra)
         {
             if (string.IsNullOrEmpty(compra.NumeroFactura))
                 throw new ArgumentException("El número de factura es obligatorio.");
@@ -34,25 +39,58 @@ namespace Backend.Services
             string preciosCompra = string.Join(",", compra.PreciosCompra);
             string preciosVenta = string.Join(",", compra.PreciosVenta);
             string codigosLote = string.Join(",", compra.CodigosLote);
-
             string fechasEntrada = string.Join(",", compra.FechasEntrada.Select(d => d.ToString("yyyy-MM-ddTHH:mm:ss")));
             string fechasVencimiento = string.Join(",", compra.FechasVencimiento.Select(d => d.ToString("yyyy-MM-ddTHH:mm:ss")));
 
-            return _compraDAL.RegistrarCompra(
-                compra.Proveedor,
-                compra.Usuario,
-                compra.NumeroFactura,
-                productos,
-                cantidades,
-                preciosCompra,
-                preciosVenta,
-                codigosLote,
-                fechasEntrada,
-                fechasVencimiento
-            );
+            try
+            {
+                // Registrar la compra en SQL Server
+                var resultado = _compraDAL.RegistrarCompra(
+                    compra.Proveedor,
+                    compra.Usuario,
+                    compra.NumeroFactura,
+                    productos,
+                    cantidades,
+                    preciosCompra,
+                    preciosVenta,
+                    codigosLote,
+                    fechasEntrada,
+                    fechasVencimiento
+                );
+
+                // Métrica de transacción exitosa
+                var metric = new TransactionMetric
+                {
+                    TransactionName = "Compra Registrada",
+                    UserId = compra.Usuario,
+                    Success = true,
+                    Amount = compra.PreciosCompra.Sum(),
+                    ItemsCount = compra.Productos.Count
+                };
+
+                await _metricsService.RecordEventAsync<TransactionMetric>(metric);
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                // Métrica de transacción fallida
+                var metric = new TransactionMetric
+                {
+                    TransactionName = "Compra Fallida",
+                    UserId = compra.Usuario,
+                    Success = false,
+                    Amount = compra.PreciosCompra.Sum(),
+                    ItemsCount = compra.Productos.Count
+                };
+
+                await _metricsService.RecordEventAsync<TransactionMetric>(metric);
+
+                throw; // re-lanzar excepción para que el controller lo maneje
+            }
         }
 
-        // NUEVO método para buscar productos activos
+        // Métodos existentes de búsqueda de productos y proveedores
         public List<Dictionary<string, object>> BuscarProductosActivos(string termino)
         {
             if (string.IsNullOrWhiteSpace(termino))
@@ -61,7 +99,6 @@ namespace Backend.Services
             return _compraDAL.BuscarProductosActivos(termino);
         }
 
-        // NUEVO método para buscar proveedores por razón social
         public List<string> BuscarProveedoresPorRazonSocial(string termino)
         {
             if (string.IsNullOrWhiteSpace(termino))
@@ -70,9 +107,7 @@ namespace Backend.Services
             return _compraDAL.BuscarProveedoresPorRazonSocial(termino);
         }
 
-
-
-        // DTO para respuesta de productos (opcional para el futuro)
+        // DTO opcional para respuesta de productos
         public class ProductosResponseDTO
         {
             public int TotalRecords { get; set; }
@@ -80,5 +115,3 @@ namespace Backend.Services
         }
     }
 }
-
-

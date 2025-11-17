@@ -1,7 +1,10 @@
 ﻿using Backend.Models;
+using Backend.Models.MetricsModels;
 using Backend.Services;
+using Backend.Services.MetricsServices; // Importar IMetrics
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Threading.Tasks;
 
 namespace Backend.Controllers
 {
@@ -10,10 +13,12 @@ namespace Backend.Controllers
     public class CompraController : ControllerBase
     {
         private readonly CompraService _compraService;
+        private readonly IMetrics _metricsService; // Métricas
 
-        public CompraController(CompraService compraService)
+        public CompraController(CompraService compraService, IMetrics metricsService)
         {
             _compraService = compraService;
+            _metricsService = metricsService;
         }
 
         // Endpoint para buscar productos activos
@@ -23,9 +28,7 @@ namespace Backend.Controllers
             try
             {
                 termino = string.IsNullOrWhiteSpace(termino) ? null : termino.Trim();
-
                 var productos = _compraService.BuscarProductosActivos(termino);
-
                 return Ok(new { data = productos });
             }
             catch (Exception ex)
@@ -41,9 +44,7 @@ namespace Backend.Controllers
             try
             {
                 termino = string.IsNullOrWhiteSpace(termino) ? null : termino.Trim();
-
                 var proveedores = _compraService.BuscarProveedoresPorRazonSocial(termino);
-
                 return Ok(new { data = proveedores });
             }
             catch (Exception ex)
@@ -52,13 +53,12 @@ namespace Backend.Controllers
             }
         }
 
-
         [HttpPost("registrar")]
-        public IActionResult RegistrarCompra([FromBody] CompraDTO compraDTO)
+        public async Task<IActionResult> RegistrarCompra([FromBody] CompraDTO compraDTO)
         {
             try
             {
-                var resultado = _compraService.RegistrarCompra(compraDTO);
+                var resultado = await _compraService.RegistrarCompraAsync(compraDTO);
                 return Ok(resultado);
             }
             catch (Exception ex)
@@ -66,5 +66,7 @@ namespace Backend.Controllers
                 return BadRequest(new { mensaje = ex.Message });
             }
         }
+
+
     }
 }

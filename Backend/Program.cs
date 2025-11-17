@@ -4,28 +4,24 @@ using Microsoft.OpenApi.Models;
 using Backend.DataAccess;
 using Backend.Models;
 using Backend.Services;
+using Backend.Services.MetricsServices;
+using Backend.Middlewares;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ==========================================
-// 1. Configuración de servicios principales
-// ==========================================
+// Configuración de servicios principales
 builder.Services.AddControllers()
     .AddNewtonsoftJson(options =>
     {
-        // JSON indentado y legible
         options.SerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
         options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
-        // Fechas legibles
         options.SerializerSettings.DateFormatString = "yyyy-MM-dd";
     });
 
 builder.Services.AddEndpointsApiExplorer();
 
-// ==========================================
-// 2. Swagger con autenticación JWT
-// ==========================================
+//Swagger con autenticación JWT
 builder.Services.AddSwaggerGen(c =>
 {
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -53,44 +49,31 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ==========================================
-// 3. Configurar JWT desde appsettings.json
-// ==========================================
+// Configurar JWT desde appsettings.json
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 
-// ==========================================
-// 4. Obtener cadena de conexión
-// ==========================================
+// Cadena de conexión SQL
 string connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-// ==========================================
-// 5. Registrar DAL y Services usando Scoped
-// ==========================================
-// Usuarios
+//  Inyección de DAL y Services
 builder.Services.AddScoped<UsuarioDAL>(sp => new UsuarioDAL(connectionString));
 builder.Services.AddScoped<UsuarioServices>();
 
-// Productos
 builder.Services.AddScoped<ProductoDAL>(sp => new ProductoDAL(connectionString));
 builder.Services.AddScoped<ProductoService>();
 
-// Compra
 builder.Services.AddScoped<CompraDAL>(sp => new CompraDAL(connectionString));
 builder.Services.AddScoped<CompraService>();
 
-
-// Categorías
 builder.Services.AddScoped<CategoriaDAL>(sp => new CategoriaDAL(connectionString));
 builder.Services.AddScoped<CategoriaService>();
 
+//builder.Services.AddScoped<IVentaService, VentaService>();
 
+// Inyección de métricas (MongoDB)
+builder.Services.AddSingleton<IMetrics, MetricService>();
 
-
-
-
-// ==========================================
-// 6. Configurar autenticación JWT
-// ==========================================
+// Configurar autenticación JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -107,30 +90,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// ==========================================
-// 7. Configurar CORS
-// ==========================================
+// Configurar CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("PermitirFrontend", policy =>
     {
         policy.WithOrigins(
-            "http://192.168.1.76", // IP del frontend
-            "http://localhost"
+            "http://192.168.1.76",
+            "http://localhost",
+            "http://localhost:5138"
         )
         .AllowAnyHeader()
         .AllowAnyMethod();
     });
 });
 
-// ==========================================
-// 8. Construcción de la aplicación
-// ==========================================
+// Construcción de la aplicación
 var app = builder.Build();
 
-// ==========================================
-// 9. Middleware
-// ==========================================
+//Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -139,17 +117,20 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Aplicar CORS
+// CORS
 app.UseCors("PermitirFrontend");
 
-// Autenticación y autorización
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Registrar métricas DESPUÉS de autenticación
+app.UseMiddleware<RequestMetricsMiddleware>();
+
+app.MapControllers();
+
 
 // Mapear controladores
 app.MapControllers();
 
-// ==========================================
-// 10. Escuchar en todas las interfaces de red
-// ==========================================
+// Ejecutar la app
 app.Run("http://0.0.0.0:5138");
