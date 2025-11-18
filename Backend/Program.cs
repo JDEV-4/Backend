@@ -10,7 +10,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuración de servicios principales
+// Configuración de controladores
 builder.Services.AddControllers()
     .AddNewtonsoftJson(options =>
     {
@@ -21,13 +21,13 @@ builder.Services.AddControllers()
 
 builder.Services.AddEndpointsApiExplorer();
 
-//Swagger con autenticación JWT
+// Swagger + JWT
 builder.Services.AddSwaggerGen(c =>
 {
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
-        Description = "Ingrese el token JWT con 'Bearer'. Ejemplo: Bearer {token}",
+        Description = "Ingrese: Bearer {token}",
         Name = "Authorization",
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
@@ -49,13 +49,13 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configurar JWT desde appsettings.json
+// JWT Config
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 
-// Cadena de conexión SQL
+// SQL
 string connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-//  Inyección de DAL y Services
+// Servicios DAL
 builder.Services.AddScoped<UsuarioDAL>(sp => new UsuarioDAL(connectionString));
 builder.Services.AddScoped<UsuarioServices>();
 
@@ -68,12 +68,10 @@ builder.Services.AddScoped<CompraService>();
 builder.Services.AddScoped<CategoriaDAL>(sp => new CategoriaDAL(connectionString));
 builder.Services.AddScoped<CategoriaService>();
 
-//builder.Services.AddScoped<IVentaService, VentaService>();
-
-// Inyección de métricas (MongoDB)
+// Métricas - MongoDB (Singleton OK)
 builder.Services.AddSingleton<IMetrics, MetricService>();
 
-// Configurar autenticación JWT
+// JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -90,7 +88,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// Configurar CORS
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("PermitirFrontend", policy =>
@@ -105,10 +103,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Construcción de la aplicación
+
 var app = builder.Build();
 
-//Middleware
+// Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -116,21 +114,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-// CORS
 app.UseCors("PermitirFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Registrar métricas DESPUÉS de autenticación
+// MÉTRICAS - Ideal ubicación
 app.UseMiddleware<RequestMetricsMiddleware>();
 
 app.MapControllers();
 
-
-// Mapear controladores
-app.MapControllers();
-
-// Ejecutar la app
 app.Run("http://0.0.0.0:5138");

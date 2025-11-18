@@ -3,7 +3,6 @@ using Backend.Services.MetricsServices;
 using Microsoft.AspNetCore.Http;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Backend.Models.MetricsModels;
 
 namespace Backend.Middlewares
 {
@@ -19,18 +18,22 @@ namespace Backend.Middlewares
         public async Task InvokeAsync(HttpContext context, IMetrics metrics)
         {
             var sw = Stopwatch.StartNew();
+
             await _next(context);
             sw.Stop();
+
+            string? user = context.User.Identity?.Name ?? "anonymous";
 
             var metric = new RequestMetric
             {
                 EndpointPath = context.Request.Path,
                 HttpMethod = context.Request.Method,
                 StatusCode = context.Response.StatusCode,
-                TiempoMs = sw.ElapsedMilliseconds
+                TiempoMs = sw.ElapsedMilliseconds,
+                UserName = user
             };
 
-            await metrics.RecordEventAsync(metric);
+            _ = metrics.RecordEventAsync(metric); // No bloquea
         }
     }
 }
